@@ -56,14 +56,19 @@ RUN adduser -u ${USER_ID} -S -D enduro enduro
 USER enduro
 
 FROM base AS enduro
-# Install python/pip
-# RUN apk add --update python3 py3-pip
-# run pip3 install lxml
 COPY --from=build-enduro --link /out/enduro /home/enduro/bin/enduro
 COPY --from=build-enduro --link /src/enduro.toml /home/enduro/.config/enduro.toml
 CMD ["/home/enduro/bin/enduro", "--config", "/home/enduro/.config/enduro.toml"]
 
 FROM base AS enduro-a3m-worker
+# Install python/pip
+ENV PYTHONUNBUFFERED=1
+USER root
+RUN apk add --update --no-cache python3 && \
+	ln -sf python3 /usr/bin/python && \
+	python3 -m ensurepip
+USER enduro
+RUN pip3 install --no-cache --upgrade pip lxml
 COPY --from=build-enduro-a3m-worker --link /out/enduro-a3m-worker /home/enduro/bin/enduro-a3m-worker
 COPY --from=build-enduro-a3m-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
 CMD ["/home/enduro/bin/enduro-a3m-worker", "--config", "/home/enduro/.config/enduro.toml"]
