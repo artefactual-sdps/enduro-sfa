@@ -6,7 +6,7 @@
 debug = true
 debugListen = "127.0.0.1:9001"
 verbosity = 2
-useArchivematica = true
+useArchivematica = false # TODO(daniel): change back to true.
 
 [temporal]
 namespace = "default"
