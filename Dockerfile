@@ -56,6 +56,9 @@ RUN adduser -u ${USER_ID} -S -D enduro enduro
 USER enduro
 
 FROM base AS enduro
+# Install python/pip
+# RUN apk add --update python3 py3-pip
+# run pip3 install lxml
 COPY --from=build-enduro --link /out/enduro /home/enduro/bin/enduro
 COPY --from=build-enduro --link /src/enduro.toml /home/enduro/.config/enduro.toml
 CMD ["/home/enduro/bin/enduro", "--config", "/home/enduro/.config/enduro.toml"]

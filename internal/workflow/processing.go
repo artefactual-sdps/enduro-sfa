@@ -8,11 +8,13 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	temporalsdk_temporal "go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/workflow"
 	temporalsdk_workflow "go.temporal.io/sdk/workflow"
 
 	"github.com/artefactual-sdps/enduro/internal/a3m"
@@ -20,7 +22,9 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/fsutil"
 	"github.com/artefactual-sdps/enduro/internal/package_"
 	"github.com/artefactual-sdps/enduro/internal/ref"
+	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
+	"github.com/artefactual-sdps/enduro/internal/unpack"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
 )
@@ -304,6 +308,54 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 					return err
 				}
 			}
+		}
+	}
+
+	// SFA-Preprocessing activities.
+	{
+		p := filepath.Join(tinfo.TempFile, filepath.Clean(tinfo.req.Key))
+		var upa *unpack.UnpackActivity
+		var res unpack.UnpackResults
+		err := workflow.ExecuteActivity(sessCtx, upa.Unpack, unpack.UnpackParams{
+			PackagePath: p,
+		}).Get(sessCtx, &res)
+		if err != nil {
+			return err
+		}
+
+		// Validate SIP structure.
+		var checkStructureRes sfa_activities.CheckSipStructureResult
+		err = workflow.ExecuteActivity(sessCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: res.ExtractPath}).Get(sessCtx, &checkStructureRes)
+		if err != nil {
+			return err
+		}
+
+		var allowedFileFormats sfa_activities.AllowedFileFormatsResult
+		err = workflow.ExecuteActivity(sessCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: res.ExtractPath}).Get(sessCtx, &allowedFileFormats)
+		if err != nil {
+			return err
+		}
+
+		// Validate metadata.xsd.
+		var metadataValidation sfa_activities.MetadataValidationResult
+		err = workflow.ExecuteActivity(sessCtx, sfa_activities.MetadataValidationActivityName, &sfa_activities.MetadataValidationParams{SipPath: res.ExtractPath}).Get(sessCtx, &metadataValidation)
+		if err != nil {
+			return err
+		}
+
+		// Repackage SFA Sip into a valid Bag.
+		var sipCreation sfa_activities.SipCreationResult
+		err = workflow.ExecuteActivity(sessCtx, sfa_activities.SipCreationActivityName, &sfa_activities.SipCreationParams{SipPath: res.ExtractPath}).Get(sessCtx, &sipCreation)
+		if err != nil {
+			return err
+		}
+
+		// I do this for now so that the code above only stops when a non-bussines error is found.
+		if !allowedFileFormats.Ok {
+			return sfa_activities.ErrIlegalFileFormat
+		}
+		if !checkStructureRes.Ok {
+			return sfa_activities.ErrInvaliSipStructure
 		}
 	}
 
