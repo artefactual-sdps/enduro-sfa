@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"go.artefactual.dev/tools/log"
+	"go.artefactual.dev/tools/ref"
 	temporalsdk_activity "go.temporal.io/sdk/activity"
 	temporalsdk_client "go.temporal.io/sdk/client"
 	temporalsdk_worker "go.temporal.io/sdk/worker"
@@ -28,7 +29,9 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/db"
 	"github.com/artefactual-sdps/enduro/internal/event"
 	"github.com/artefactual-sdps/enduro/internal/package_"
+	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
+	"github.com/artefactual-sdps/enduro/internal/unpack"
 	"github.com/artefactual-sdps/enduro/internal/version"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
@@ -160,6 +163,12 @@ func main() {
 		w.RegisterActivityWithOptions(activities.NewMoveToPermanentStorageActivity(storageClient).Execute, temporalsdk_activity.RegisterOptions{Name: activities.MoveToPermanentStorageActivityName})
 		w.RegisterActivityWithOptions(activities.NewPollMoveToPermanentStorageActivity(storageClient).Execute, temporalsdk_activity.RegisterOptions{Name: activities.PollMoveToPermanentStorageActivityName})
 		w.RegisterActivityWithOptions(activities.NewRejectPackageActivity(storageClient).Execute, temporalsdk_activity.RegisterOptions{Name: activities.RejectPackageActivityName})
+		// SFA-preprocessing activities.
+		w.RegisterActivityWithOptions(sfa_activities.NewCheckSipStructure().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.CheckSipStructureName})
+		w.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
+		w.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationActivityName})
+		w.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationActivityName})
+		w.RegisterActivity(ref.New(unpack.UnpackActivity{UnarchiveImpl: unpack.NewArchiverCmd()}).Unpack)
 
 		g.Add(
 			func() error {
