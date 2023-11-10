@@ -77,23 +77,23 @@ RUN pip3 install --no-cache --upgrade pip lxml bagit==v1.8.1
 COPY --from=build-enduro-a3m-worker --link /out/enduro-a3m-worker /home/enduro/bin/enduro-a3m-worker
 COPY --from=build-enduro-a3m-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
 # SFA metadata schema for validation.
-COPY --from=build-enduro-a3m-worker --link /src/xsdval.py xsdval.py
-COPY --from=build-enduro-a3m-worker --link /src/repackage_sip.py repackage_sip.py
-COPY --from=build-enduro-a3m-worker --link /src/ablieferung.xsd ablieferung.xsd
-COPY --from=build-enduro-a3m-worker --link /src/archivischeNotiz.xsd archivischeNotiz.xsd
-COPY --from=build-enduro-a3m-worker --link /src/archivischerVorgang.xsd archivischerVorgang.xsd 
-COPY --from=build-enduro-a3m-worker --link /src/arelda.xsd arelda.xsd
-COPY --from=build-enduro-a3m-worker --link /src/base.xsd base.xsd
-COPY --from=build-enduro-a3m-worker --link /src/datei.xsd datei.xsd
-COPY --from=build-enduro-a3m-worker --link /src/dokument.xsd dokument.xsd
-COPY --from=build-enduro-a3m-worker --link /src/dossier.xsd dossier.xsd
-COPY --from=build-enduro-a3m-worker --link /src/ordner.xsd ordner.xsd
-COPY --from=build-enduro-a3m-worker --link /src/ordnungssystem.xsd ordnungssystem.xsd
-COPY --from=build-enduro-a3m-worker --link /src/ordnungssystemposition.xsd ordnungssystemposition.xsd
-COPY --from=build-enduro-a3m-worker --link /src/paket.xsd paket.xsd
-COPY --from=build-enduro-a3m-worker --link /src/provenienz.xsd provenienz.xsd
-COPY --from=build-enduro-a3m-worker --link /src/zusatzDaten.xsd zusatzDaten.xsd
-COPY --from=build-enduro-a3m-worker --link /src/bagit.txt bagit.txt
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/xsdval.py xsdval.py
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/repackage_sip.py repackage_sip.py
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ablieferung.xsd ablieferung.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/archivischeNotiz.xsd archivischeNotiz.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/archivischerVorgang.xsd archivischerVorgang.xsd 
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/arelda.xsd arelda.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/base.xsd base.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/datei.xsd datei.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/dokument.xsd dokument.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/dossier.xsd dossier.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordner.xsd ordner.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordnungssystem.xsd ordnungssystem.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordnungssystemposition.xsd ordnungssystemposition.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/paket.xsd paket.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/provenienz.xsd provenienz.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/zusatzDaten.xsd zusatzDaten.xsd
+COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/bagit.txt bagit.txt
 CMD ["/home/enduro/bin/enduro-a3m-worker", "--config", "/home/enduro/.config/enduro.toml"]
 
 FROM ${TARGET}

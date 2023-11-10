@@ -3,7 +3,6 @@ package activities
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os/exec"
 )
 
@@ -28,14 +27,13 @@ func (sc *SipCreationActivity) Execute(ctx context.Context, params *SipCreationP
 	res := &SipCreationResult{}
 	e, err := exec.Command("python3", "repackage_sip.py", params.SipPath).CombinedOutput()
 	if err != nil {
-		fmt.Println(string(e))
 		return nil, err
 	}
 	res.Out = string(e)
-
 	if res.Out != params.SipPath+"_bag\n" {
 		return nil, errors.New("Failed to repackage sip correctly: " + res.Out)
 	}
+
 	res.NewSipPath = params.SipPath + "_bag"
 	return res, nil
 }

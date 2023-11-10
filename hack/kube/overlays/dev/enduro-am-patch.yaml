@@ -9,4 +9,4 @@ spec:
         - name: enduro-am-worker
           env:
             - name: ENDURO_USEARCHIVEMATICA
-              value: "true"
+              value: "false"

@@ -170,12 +170,11 @@ func (w *ProcessingWorkflow) Execute(ctx temporalsdk_workflow.Context, req *pack
 		var taskQueue string
 		maxAttempts := 5
 
-		// if w.useArchivematica {
-		// 	taskQueue = temporal.AmWorkerTaskQueue
-		// } else {
-		// 	taskQueue = temporal.A3mWorkerTaskQueue
-		// }
-		taskQueue = temporal.A3mWorkerTaskQueue
+		if w.useArchivematica {
+			taskQueue = temporal.AmWorkerTaskQueue
+		} else {
+			taskQueue = temporal.A3mWorkerTaskQueue
+		}
 
 		activityOpts := temporalsdk_workflow.WithActivityOptions(ctx, temporalsdk_workflow.ActivityOptions{
 			StartToCloseTimeout: time.Minute,
@@ -324,6 +323,7 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 				},
 			},
 		})
+
 		// Extract package.
 		var extractPackageRes sfa_activities.ExtractPackageResult
 		err := workflow.ExecuteActivity(preProcCtx, sfa_activities.ExtractPackageName, &sfa_activities.ExtractPackageParams{
@@ -368,8 +368,8 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if !checkStructureRes.Ok {
 			return sfa_activities.ErrInvaliSipStructure
 		}
-
 		tinfo.TempFile = sipCreation.NewSipPath
+		tinfo.req.IsDir = true
 	}
 
 	{
@@ -655,6 +655,7 @@ func (w *ProcessingWorkflow) transferA3m(sessCtx temporalsdk_workflow.Context, t
 				IsDir:            tinfo.req.IsDir,
 				TempFile:         tinfo.TempFile,
 				StripTopLevelDir: tinfo.req.StripTopLevelDir,
+				OverrideWatcher:  true, // Need this to be if SFA-preprocessing is present.
 			}).Get(activityOpts, &tinfo.Bundle)
 			if err != nil {
 				return err
