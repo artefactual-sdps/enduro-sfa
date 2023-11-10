@@ -34,7 +34,7 @@ func (sc *SipCreationActivity) Execute(ctx context.Context, params *SipCreationP
 	res.Out = string(e)
 
 	if res.Out != params.SipPath+"_bag\n" {
-		return nil, errors.New("Failed to repackage sip correclty: " + res.Out)
+		return nil, errors.New("Failed to repackage sip correctly: " + res.Out)
 	}
 	res.NewSipPath = params.SipPath + "_bag"
 	return res, nil
