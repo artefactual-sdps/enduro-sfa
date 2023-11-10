@@ -322,6 +322,7 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 				},
 			},
 		})
+
 		// Extract package.
 		var extractPackageRes sfa_activities.ExtractPackageResult
 		err := temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.ExtractPackageName, &sfa_activities.ExtractPackageParams{
@@ -366,8 +367,8 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if !checkStructureRes.Ok {
 			return sfa_activities.ErrInvaliSipStructure
 		}
-
 		tinfo.TempFile = sipCreation.NewSipPath
+		tinfo.req.IsDir = true
 	}
 
 	// Bundle.

@@ -2,7 +2,7 @@ package activities
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os/exec"
 	"path/filepath"
 )
@@ -31,10 +31,12 @@ func (md *MetadataValidationActivity) Execute(ctx context.Context, params *Metad
 		filepath.Join(params.SipPath, "/header/metadata.xml"),
 		"arelda.xsd").CombinedOutput()
 	if err != nil {
-		fmt.Println(string(e))
 		return nil, err
 	}
 
 	res.Out = string(e)
+	if res.Out != "Is metadata.xml valid:  True\n" {
+		return nil, errors.New("Failed to validate metadata files: " + res.Out)
+	}
 	return res, nil
 }
