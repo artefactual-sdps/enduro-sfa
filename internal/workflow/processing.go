@@ -170,11 +170,12 @@ func (w *ProcessingWorkflow) Execute(ctx temporalsdk_workflow.Context, req *pack
 		var taskQueue string
 		maxAttempts := 5
 
-		if w.useArchivematica {
-			taskQueue = temporal.AmWorkerTaskQueue
-		} else {
-			taskQueue = temporal.A3mWorkerTaskQueue
-		}
+		// if w.useArchivematica {
+		// 	taskQueue = temporal.AmWorkerTaskQueue
+		// } else {
+		// 	taskQueue = temporal.A3mWorkerTaskQueue
+		// }
+		taskQueue = temporal.A3mWorkerTaskQueue
 
 		activityOpts := temporalsdk_workflow.WithActivityOptions(ctx, temporalsdk_workflow.ActivityOptions{
 			StartToCloseTimeout: time.Minute,
@@ -311,9 +312,21 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 
 	// SFA-Preprocessing activities.
 	{
+		preProcCtx := temporalsdk_workflow.WithActivityOptions(sessCtx, temporalsdk_workflow.ActivityOptions{
+			StartToCloseTimeout: time.Second * 5,
+			RetryPolicy: &temporalsdk_temporal.RetryPolicy{
+				InitialInterval:    time.Second,
+				BackoffCoefficient: 2,
+				MaximumInterval:    time.Second * 10,
+				MaximumAttempts:    2,
+				NonRetryableErrorTypes: []string{
+					"TemporalTimeout:StartToClose",
+				},
+			},
+		})
 		// Extract package.
 		var extractPackageRes sfa_activities.ExtractPackageResult
-		err := workflow.ExecuteActivity(sessCtx, sfa_activities.ExtractPackageName, &sfa_activities.ExtractPackageParams{
+		err := workflow.ExecuteActivity(preProcCtx, sfa_activities.ExtractPackageName, &sfa_activities.ExtractPackageParams{
 			Path: tinfo.TempFile,
 			Key:  tinfo.req.Key,
 		}).Get(sessCtx, &extractPackageRes)
@@ -323,27 +336,27 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 
 		// Validate SIP structure.
 		var checkStructureRes sfa_activities.CheckSipStructureResult
-		err = workflow.ExecuteActivity(sessCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &checkStructureRes)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &checkStructureRes)
 		if err != nil {
 			return err
 		}
 
 		var allowedFileFormats sfa_activities.AllowedFileFormatsResult
-		err = workflow.ExecuteActivity(sessCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &allowedFileFormats)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &allowedFileFormats)
 		if err != nil {
 			return err
 		}
 
 		// Validate metadata.xsd.
 		var metadataValidation sfa_activities.MetadataValidationResult
-		err = workflow.ExecuteActivity(sessCtx, sfa_activities.MetadataValidationActivityName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationActivityName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
 		if err != nil {
 			return err
 		}
 
-		// Repackage SFA Sip into a valid Bag.
+		// Repackage SFA Sip into a Bag.
 		var sipCreation sfa_activities.SipCreationResult
-		err = workflow.ExecuteActivity(sessCtx, sfa_activities.SipCreationActivityName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationActivityName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
 		if err != nil {
 			return err
 		}
@@ -355,6 +368,8 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if !checkStructureRes.Ok {
 			return sfa_activities.ErrInvaliSipStructure
 		}
+
+		tinfo.TempFile = sipCreation.NewSipPath
 	}
 
 	{
