@@ -698,12 +698,24 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 
 	activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
 
+	// Zip transfer.
+	var zip activities.ZipActivityResult
+	err = temporalsdk_workflow.ExecuteActivity(
+		activityOpts,
+		activities.ZipActivityName,
+		&activities.ZipActivityParams{SourceDir: tinfo.TempFile},
+	).Get(activityOpts, &zip)
+	if err != nil {
+		return err
+	}
+	w.cleanUpPath(zip.Path) // Delete when workflow completes.
+
 	uploadResult := am.UploadTransferActivityResult{}
 	err = temporalsdk_workflow.ExecuteActivity(
 		activityOpts,
 		am.UploadTransferActivityName,
 		&am.UploadTransferActivityParams{
-			FullPath: tinfo.TempFile,
+			FullPath: zip.Path,
 			Filename: tinfo.req.Key,
 		},
 	).Get(activityOpts, &uploadResult)

@@ -235,10 +235,13 @@ func (s *ProcessingWorkflowTestSuite) TestAMWorkflow() {
 	s.env.OnActivity(sfa_activities.MetadataValidationName, sessionCtx, &sfa_activities.MetadataValidationParams{}).Return(&sfa_activities.MetadataValidationResult{}, nil).Once()
 	s.env.OnActivity(sfa_activities.SipCreationName, sessionCtx, &sfa_activities.SipCreationParams{}).Return(&sfa_activities.SipCreationResult{}, nil).Once()
 
-	// AM specific activities.
+	// AM workflow specific activities.
+	s.env.OnActivity(activities.ZipActivityName,
+		sessionCtx, mock.AnythingOfType("*activities.ZipActivityParams"),
+	).Return(nil, nil).Once()
 	s.env.OnActivity(am.UploadTransferActivityName,
 		sessionCtx, mock.AnythingOfType("*am.UploadTransferActivityParams"),
-	).Return(&am.UploadTransferActivityResult{RemotePath: "/transfer_source/aip.zip"}, nil).Once()
+	).Return(nil, nil).Once()
 	s.env.OnActivity(am.StartTransferActivityName,
 		sessionCtx, mock.AnythingOfType("*am.StartTransferActivityParams"),
 	).Return(nil, nil).Once()
