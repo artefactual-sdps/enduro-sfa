@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-const SipCreationActivityName = "sip-creation"
+const SipCreationName = "sip-creation"
 
 type SipCreationActivity struct{}
 

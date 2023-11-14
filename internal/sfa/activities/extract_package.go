@@ -30,54 +30,38 @@ func NewExtractPackage() *ExtractPackage {
 func (a *ExtractPackage) Execute(ctx context.Context, params *ExtractPackageParams) (*ExtractPackageResult, error) {
 	iface, err := archiver.ByExtension(params.Key)
 	if err != nil {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("couldn't find a decompressor for %s: %v", params.Key, err),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("couldn't find a decompressor for %s: %v", params.Key, err))
 	}
 
 	unar, ok := iface.(archiver.Unarchiver)
 	if !ok {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("couldn't find a decompressor for %s", params.Path),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("couldn't find a decompressor for %s", params.Path))
 	}
 
 	tempDir, err := os.MkdirTemp(filepath.Dir(params.Path), "package-*")
 	if err != nil {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("error creating temporary directory: %v", err),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("error creating temporary directory: %v", err))
 	}
 
 	if err := unar.Unarchive(params.Path, tempDir); err != nil {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("error extracting file %s: %v", params.Path, err),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("error extracting file %s: %v", params.Path, err))
 	}
 
 	entries, err := os.ReadDir(tempDir)
 	if err != nil {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("error reading extracted package directory: %v", err),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("error reading extracted package directory: %v", err))
 	}
 
 	if len(entries) == 0 {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("no entry found in extracted package directory"),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("no entry found in extracted package directory"))
 	}
 
 	if len(entries) > 1 {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("more than one entry found in extracted package directory"),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("more than one entry found in extracted package directory"))
 	}
 
 	if err = os.Remove(params.Path); err != nil {
-		return nil, temporal.NewNonRetryableError(
-			fmt.Errorf("error removing package file: %v", err),
-		)
+		return nil, temporal.NewNonRetryableError(fmt.Errorf("error removing package file: %v", err))
 	}
 
 	return &ExtractPackageResult{Path: filepath.Join(tempDir, entries[0].Name())}, nil

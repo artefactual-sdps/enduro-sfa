@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-const MetadataValidationActivityName = "metadata-validation"
+const MetadataValidationName = "metadata-validation"
 
 type MetadataValidationActivity struct{}
 

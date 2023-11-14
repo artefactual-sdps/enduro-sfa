@@ -14,6 +14,7 @@ import (
 	"github.com/otiai10/copy"
 	temporal_tools "go.artefactual.dev/tools/temporal"
 
+	"github.com/artefactual-sdps/enduro/internal/bagit"
 	"github.com/artefactual-sdps/enduro/internal/bundler"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 )
@@ -33,8 +34,6 @@ type BundleActivityParams struct {
 	TempFile         string
 	StripTopLevelDir bool
 	IsDir            bool
-	// Will override certain preservation actions that are unncesary due to the SFA-preprocessing step.
-	OverrideWatcher bool
 }
 
 type BundleActivityResult struct {
@@ -63,18 +62,12 @@ func (a *BundleActivity) Execute(ctx context.Context, params *BundleActivityPara
 	}()
 
 	if params.IsDir {
-		if params.OverrideWatcher {
-			src := params.TempFile
+		var w watcher.Watcher
+		w, err = a.wsvc.ByName(params.WatcherName)
+		if err == nil {
+			src, _ := securejoin.SecureJoin(w.Path(), params.Key)
 			dst := params.TransferDir
 			res.FullPath, res.FullPathBeforeStrip, err = a.Copy(ctx, src, dst, false)
-		} else {
-			var w watcher.Watcher
-			w, err = a.wsvc.ByName(params.WatcherName)
-			if err == nil {
-				src, _ := securejoin.SecureJoin(w.Path(), params.Key)
-				dst := params.TransferDir
-				res.FullPath, res.FullPathBeforeStrip, err = a.Copy(ctx, src, dst, false)
-			}
 		}
 	} else {
 		unar := a.Unarchiver(params.Key, params.TempFile)
@@ -244,9 +237,9 @@ func unbag(path string) error {
 	}
 
 	// Confirm completeness of the bag.
-	// if err := bagit.Valid(path); err != nil {
-	// 	return err
-	// }
+	if err := bagit.Valid(path); err != nil {
+		return err
+	}
 
 	// Move files in data up one level if 'objects' folder already exists.
 	// Otherwise, rename data to objects.
