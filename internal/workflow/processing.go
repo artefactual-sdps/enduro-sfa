@@ -309,8 +309,8 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		}
 	}
 
-	// SFA-Preprocessing activities.
-	{
+	// SFA-Preprocessing activities only are meant to be used with Archivematica.
+	if w.useArchivematica {
 		preProcCtx := temporalsdk_workflow.WithActivityOptions(sessCtx, temporalsdk_workflow.ActivityOptions{
 			StartToCloseTimeout: time.Second * 5,
 			RetryPolicy: &temporalsdk_temporal.RetryPolicy{
@@ -349,19 +349,19 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 
 		// Validate metadata.xsd.
 		var metadataValidation sfa_activities.MetadataValidationResult
-		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationActivityName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
 		if err != nil {
 			return err
 		}
 
 		// Repackage SFA Sip into a Bag.
 		var sipCreation sfa_activities.SipCreationResult
-		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationActivityName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
+		err = workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
 		if err != nil {
 			return err
 		}
 
-		// I do this for now so that the code above only stops when a non-bussines error is found.
+		// We do this so that the code above only stops when a non-bussines error is found.
 		if !allowedFileFormats.Ok {
 			return sfa_activities.ErrIlegalFileFormat
 		}
@@ -655,7 +655,6 @@ func (w *ProcessingWorkflow) transferA3m(sessCtx temporalsdk_workflow.Context, t
 				IsDir:            tinfo.req.IsDir,
 				TempFile:         tinfo.TempFile,
 				StripTopLevelDir: tinfo.req.StripTopLevelDir,
-				OverrideWatcher:  true, // Need this to be if SFA-preprocessing is present.
 			}).Get(activityOpts, &tinfo.Bundle)
 			if err != nil {
 				return err

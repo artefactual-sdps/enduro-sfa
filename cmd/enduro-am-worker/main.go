@@ -22,6 +22,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/config"
 	"github.com/artefactual-sdps/enduro/internal/db"
+	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
 	"github.com/artefactual-sdps/enduro/internal/sftp"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	"github.com/artefactual-sdps/enduro/internal/version"
@@ -125,6 +126,12 @@ func main() {
 		w.RegisterActivityWithOptions(am.NewStartTransferActivity(logger, &cfg.AM, amclient.Package).Execute, temporalsdk_activity.RegisterOptions{Name: am.StartTransferActivityName})
 		w.RegisterActivityWithOptions(am.NewPollTransferActivity(logger, &cfg.AM, amclient.Transfer).Execute, temporalsdk_activity.RegisterOptions{Name: am.PollTransferActivityName})
 		w.RegisterActivityWithOptions(activities.NewCleanUpActivity(logger).Execute, temporalsdk_activity.RegisterOptions{Name: activities.CleanUpActivityName})
+		// SFA-preprocessing activities.
+		w.RegisterActivityWithOptions(sfa_activities.NewExtractPackage().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.ExtractPackageName})
+		w.RegisterActivityWithOptions(sfa_activities.NewCheckSipStructure().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.CheckSipStructureName})
+		w.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
+		w.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
+		w.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
 
 		g.Add(
 			func() error {

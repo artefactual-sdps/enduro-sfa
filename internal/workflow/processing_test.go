@@ -19,6 +19,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/package_"
 	packagefake "github.com/artefactual-sdps/enduro/internal/package_/fake"
+	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
 	sftp_fake "github.com/artefactual-sdps/enduro/internal/sftp/fake"
 	watcherfake "github.com/artefactual-sdps/enduro/internal/watcher/fake"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
@@ -61,6 +62,12 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(useAm bool) {
 	s.env.RegisterActivityWithOptions(activities.NewRejectPackageActivity(nil).Execute, temporalsdk_activity.RegisterOptions{Name: activities.RejectPackageActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewCleanUpActivity(logger).Execute, temporalsdk_activity.RegisterOptions{Name: activities.CleanUpActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewDeleteOriginalActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.DeleteOriginalActivityName})
+	// SFA-preprocessing activities.
+	s.env.RegisterActivityWithOptions(sfa_activities.NewExtractPackage().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.ExtractPackageName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewCheckSipStructure().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.CheckSipStructureName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
 
 	// Archivematica activities
 	s.env.RegisterActivityWithOptions(
@@ -220,6 +227,13 @@ func (s *ProcessingWorkflowTestSuite) TestAMWorkflow() {
 	s.env.OnActivity(setStatusInProgressLocalActivity, ctx, pkgsvc, pkgID, mock.AnythingOfType("time.Time")).Return(nil).Once()
 	s.env.OnActivity(createPreservationActionLocalActivity, ctx, pkgsvc, mock.AnythingOfType("*workflow.createPreservationActionLocalActivityParams")).Return(uint(0), nil).Once()
 	s.env.OnActivity(activities.DownloadActivityName, sessionCtx, watcherName, key).Return("", nil).Once()
+
+	// SFA-preprocessing activities.
+	s.env.OnActivity(sfa_activities.ExtractPackageName, sessionCtx, &sfa_activities.ExtractPackageParams{}).Return(&sfa_activities.ExtractPackageResult{}, nil).Once()
+	s.env.OnActivity(sfa_activities.CheckSipStructureName, sessionCtx, &sfa_activities.CheckSipStructureParams{}).Return(&sfa_activities.CheckSipStructureResult{Ok: true}, nil).Once()
+	s.env.OnActivity(sfa_activities.AllowedFileFormatsName, sessionCtx, &sfa_activities.AllowedFileFormatsParams{}).Return(&sfa_activities.AllowedFileFormatsResult{Ok: true}, nil).Once()
+	s.env.OnActivity(sfa_activities.MetadataValidationName, sessionCtx, &sfa_activities.MetadataValidationParams{}).Return(&sfa_activities.MetadataValidationResult{}, nil).Once()
+	s.env.OnActivity(sfa_activities.SipCreationName, sessionCtx, &sfa_activities.SipCreationParams{}).Return(&sfa_activities.SipCreationResult{}, nil).Once()
 
 	// AM specific activities.
 	s.env.OnActivity(am.UploadTransferActivityName,
