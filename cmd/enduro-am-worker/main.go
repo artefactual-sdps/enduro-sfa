@@ -165,6 +165,8 @@ func main() {
 		w.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
 		w.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
 		w.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
+		// Archivematica activities
+		w.RegisterActivityWithOptions(activities.NewZipActivity(logger).Execute, temporalsdk_activity.RegisterOptions{Name: activities.ZipActivityName})
 
 		g.Add(
 			func() error {
