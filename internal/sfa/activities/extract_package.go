@@ -56,13 +56,17 @@ func (a *ExtractPackage) Execute(ctx context.Context, params *ExtractPackagePara
 		return nil, temporal.NewNonRetryableError(fmt.Errorf("no entry found in extracted package directory"))
 	}
 
+	path := ""
 	if len(entries) > 1 {
-		return nil, temporal.NewNonRetryableError(fmt.Errorf("more than one entry found in extracted package directory"))
+		path = tempDir
+		// return nil, temporal.NewNonRetryableError(fmt.Errorf("more than one entry found in extracted package directory"))
+	} else {
+		path = filepath.Join(tempDir, entries[0].Name())
 	}
 
 	if err = os.Remove(params.Path); err != nil {
 		return nil, temporal.NewNonRetryableError(fmt.Errorf("error removing package file: %v", err))
 	}
 
-	return &ExtractPackageResult{Path: filepath.Join(tempDir, entries[0].Name())}, nil
+	return &ExtractPackageResult{Path: path}, nil
 }
