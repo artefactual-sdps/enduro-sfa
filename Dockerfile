@@ -61,11 +61,6 @@ COPY --from=build-enduro --link /src/enduro.toml /home/enduro/.config/enduro.tom
 CMD ["/home/enduro/bin/enduro", "--config", "/home/enduro/.config/enduro.toml"]
 
 FROM base AS enduro-am-worker
-COPY --from=build-enduro-am-worker --link /out/enduro-am-worker /home/enduro/bin/enduro-am-worker
-COPY --from=build-enduro-am-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
-CMD ["/home/enduro/bin/enduro-am-worker", "--config", "/home/enduro/.config/enduro.toml"]
-
-FROM base AS enduro-a3m-worker
 # Install python/pip
 ENV PYTHONUNBUFFERED=1
 USER root
@@ -74,8 +69,8 @@ RUN apk add --update --no-cache python3 && \
 	python3 -m ensurepip
 USER enduro
 RUN pip3 install --no-cache --upgrade pip lxml bagit==v1.8.1
-COPY --from=build-enduro-a3m-worker --link /out/enduro-a3m-worker /home/enduro/bin/enduro-a3m-worker
-COPY --from=build-enduro-a3m-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
+COPY --from=build-enduro-am-worker --link /out/enduro-am-worker /home/enduro/bin/enduro-am-worker
+COPY --from=build-enduro-am-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
 # SFA metadata schema for validation.
 COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/xsdval.py xsdval.py
 COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/repackage_sip.py repackage_sip.py
@@ -94,6 +89,11 @@ COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/paket.xsd pa
 COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/provenienz.xsd provenienz.xsd
 COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/zusatzDaten.xsd zusatzDaten.xsd
 COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/bagit.txt bagit.txt
+CMD ["/home/enduro/bin/enduro-am-worker", "--config", "/home/enduro/.config/enduro.toml"]
+
+FROM base AS enduro-a3m-worker
+COPY --from=build-enduro-a3m-worker --link /out/enduro-a3m-worker /home/enduro/bin/enduro-a3m-worker
+COPY --from=build-enduro-a3m-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
 CMD ["/home/enduro/bin/enduro-a3m-worker", "--config", "/home/enduro/.config/enduro.toml"]
 
 FROM ${TARGET}
