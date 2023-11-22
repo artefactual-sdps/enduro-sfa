@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/artefactual-sdps/enduro/internal/sftp"
 )
@@ -11,8 +12,7 @@ import (
 const UploadTransferActivityName = "UploadTransferActivity"
 
 type UploadTransferActivityParams struct {
-	FullPath string
-	Filename string
+	SourcePath string
 }
 
 type UploadTransferActivityResult struct {
@@ -31,13 +31,13 @@ func NewUploadTransferActivity(svc sftp.Service) *UploadTransferActivity {
 }
 
 func (a *UploadTransferActivity) Execute(ctx context.Context, params *UploadTransferActivityParams) (*UploadTransferActivityResult, error) {
-	src, err := os.Open(params.FullPath)
+	src, err := os.Open(params.SourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("upload transfer: %v", err)
 	}
 	defer src.Close()
 
-	bytes, path, err := a.sftpSvc.Upload(src, params.Filename)
+	bytes, path, err := a.sftpSvc.Upload(src, filepath.Base(params.SourcePath))
 	if err != nil {
 		return nil, fmt.Errorf("upload transfer: %v", err)
 	}

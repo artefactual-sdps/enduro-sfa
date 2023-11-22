@@ -714,10 +714,7 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	err = temporalsdk_workflow.ExecuteActivity(
 		activityOpts,
 		am.UploadTransferActivityName,
-		&am.UploadTransferActivityParams{
-			FullPath: zip.Path,
-			Filename: tinfo.req.Key,
-		},
+		&am.UploadTransferActivityParams{SourcePath: zip.Path},
 	).Get(activityOpts, &uploadResult)
 	if err != nil {
 		return err

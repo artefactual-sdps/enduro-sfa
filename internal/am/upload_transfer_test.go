@@ -17,10 +17,9 @@ import (
 )
 
 func TestUploadTransferActivity(t *testing.T) {
-	transferName := "fake_bag"
-	filename := "fake_bag.zip"
+	filename := "transfer.zip"
 	td := tfs.NewDir(t, "enduro-upload-transfer-test",
-		tfs.WithFile(transferName, "Testing 1-2-3!"),
+		tfs.WithFile(filename, "Testing 1-2-3!"),
 	)
 
 	type test struct {
@@ -34,8 +33,7 @@ func TestUploadTransferActivity(t *testing.T) {
 		{
 			name: "Returns bytes uploaded",
 			params: am.UploadTransferActivityParams{
-				FullPath: td.Join(transferName),
-				Filename: filename,
+				SourcePath: td.Join(filename),
 			},
 			recorder: func(m *sftp_fake.MockServiceMockRecorder) {
 				var t *os.File
@@ -50,16 +48,14 @@ func TestUploadTransferActivity(t *testing.T) {
 		{
 			name: "Errors when local file can't be read",
 			params: am.UploadTransferActivityParams{
-				FullPath: td.Join("missing"),
-				Filename: filename,
+				SourcePath: td.Join("missing"),
 			},
 			errMsg: fmt.Sprintf("upload transfer: open %s: no such file or directory", td.Join("missing")),
 		},
 		{
 			name: "Errors when upload fails",
 			params: am.UploadTransferActivityParams{
-				FullPath: td.Join(transferName),
-				Filename: filename,
+				SourcePath: td.Join(filename),
 			},
 			recorder: func(m *sftp_fake.MockServiceMockRecorder) {
 				var t *os.File
