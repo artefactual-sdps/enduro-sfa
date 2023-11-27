@@ -32,7 +32,8 @@ type Configuration struct {
 	Database         db.Config
 	Temporal         temporal.Config
 	Watcher          watcher.Config
-	Failed           storage.LocationConfig
+	FailedTransfers  storage.LocationConfig
+	FailedSips       storage.LocationConfig
 	Storage          storage.Config
 	Upload           upload.Config
 	A3m              a3m.Config

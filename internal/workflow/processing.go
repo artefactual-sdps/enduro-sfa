@@ -379,8 +379,9 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if PreProcessingErr != nil {
 			var sendToFailedRes sfa_activities.SendToFailedBucketResult
 			err = workflow.ExecuteActivity(preProcCtx, sfa_activities.SendToFailedBucketName, &sfa_activities.SendToFailedBucketParams{
-				Path: tinfo.TempFile,
-				Key:  tinfo.req.Key,
+				FailureType: sfa_activities.FailureTransfer,
+				Path:        tinfo.TempFile,
+				Key:         tinfo.req.Key,
 			}).Get(sessCtx, &sendToFailedRes)
 			if err != nil {
 				return err
@@ -726,6 +727,19 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 		return err
 	}
 	w.cleanUpPath(zip.Path) // Delete when workflow completes.
+	zipPath := zip.Path
+
+	defer func() {
+		if err != nil {
+			var sendToFailedRes sfa_activities.SendToFailedBucketResult
+			bucketErr := workflow.ExecuteActivity(activityOpts, sfa_activities.SendToFailedBucketName, &sfa_activities.SendToFailedBucketParams{
+				FailureType: sfa_activities.FailureSIP,
+				Path:        zipPath,
+				Key:         tinfo.req.Key,
+			}).Get(sessCtx, &sendToFailedRes)
+			errors.Join(err, bucketErr)
+		}
+	}()
 
 	uploadResult := am.UploadTransferActivityResult{}
 	err = temporalsdk_workflow.ExecuteActivity(

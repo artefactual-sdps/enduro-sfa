@@ -105,12 +105,26 @@ func main() {
 	// Set-up failed transfers bucket.
 	var failedTransfersBucket *blob.Bucket
 	{
-		failedLocation, err := storage.NewInternalLocation(&cfg.Failed)
+		failedLocation, err := storage.NewInternalLocation(&cfg.FailedTransfers)
 		if err != nil {
 			logger.Error(err, "Error setting up failed transfers location.")
 			os.Exit(1)
 		}
 		failedTransfersBucket, err = failedLocation.OpenBucket(ctx)
+		if err != nil {
+			logger.Error(err, "Error getting failed transfers bucket.")
+			os.Exit(1)
+		}
+	}
+	// Set-up failed sip bucket.
+	var failedSipsBucket *blob.Bucket
+	{
+		failedLocation, err := storage.NewInternalLocation(&cfg.FailedSips)
+		if err != nil {
+			logger.Error(err, "Error setting up failed transfers location.")
+			os.Exit(1)
+		}
+		failedSipsBucket, err = failedLocation.OpenBucket(ctx)
 		if err != nil {
 			logger.Error(err, "Error getting failed transfers bucket.")
 			os.Exit(1)
@@ -149,7 +163,7 @@ func main() {
 		w.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
 		w.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
 		w.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
-		w.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedTransfersBucket).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
+		w.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedTransfersBucket, failedSipsBucket).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
 		// Archivematica activities
 		w.RegisterActivityWithOptions(activities.NewZipActivity(logger).Execute, temporalsdk_activity.RegisterOptions{Name: activities.ZipActivityName})
 
