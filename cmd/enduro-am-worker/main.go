@@ -19,12 +19,14 @@ import (
 	temporalsdk_activity "go.temporal.io/sdk/activity"
 	temporalsdk_client "go.temporal.io/sdk/client"
 	temporalsdk_worker "go.temporal.io/sdk/worker"
+	"gocloud.dev/blob"
 
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/config"
 	"github.com/artefactual-sdps/enduro/internal/db"
 	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
 	"github.com/artefactual-sdps/enduro/internal/sftp"
+	"github.com/artefactual-sdps/enduro/internal/storage"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	"github.com/artefactual-sdps/enduro/internal/version"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
@@ -100,6 +102,21 @@ func main() {
 		}
 	}
 
+	// Set-up failed transfers bucket.
+	var failedTransfersBucket *blob.Bucket
+	{
+		failedLocation, err := storage.NewInternalLocation(&cfg.Failed)
+		if err != nil {
+			logger.Error(err, "Error setting up failed transfers location.")
+			os.Exit(1)
+		}
+		failedTransfersBucket, err = failedLocation.OpenBucket(ctx)
+		if err != nil {
+			logger.Error(err, "Error getting failed transfers bucket.")
+			os.Exit(1)
+		}
+	}
+
 	var g run.Group
 
 	// Activity worker.
@@ -165,6 +182,7 @@ func main() {
 		w.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
 		w.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
 		w.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
+		w.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedTransfersBucket).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
 		// Archivematica activities
 		w.RegisterActivityWithOptions(activities.NewZipActivity(logger).Execute, temporalsdk_activity.RegisterOptions{Name: activities.ZipActivityName})
 

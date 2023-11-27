@@ -332,45 +332,60 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if err != nil {
 			return err
 		}
-		w.cleanUpPath(extractPackageRes.Path)
+		// w.cleanUpPath(extractPackageRes.Path)
 
-		// Validate SIP structure.
-		var checkStructureRes sfa_activities.CheckSipStructureResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &checkStructureRes)
-		if err != nil {
-			return err
-		}
+		PreProcessingErr := func() error {
+			// Validate SIP structure.
+			var checkStructureRes sfa_activities.CheckSipStructureResult
+			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &checkStructureRes)
+			if err != nil {
+				return err
+			}
 
-		var allowedFileFormats sfa_activities.AllowedFileFormatsResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &allowedFileFormats)
-		if err != nil {
-			return err
-		}
+			var allowedFileFormats sfa_activities.AllowedFileFormatsResult
+			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &allowedFileFormats)
+			if err != nil {
+				return err
+			}
 
-		// Validate metadata.xsd.
-		var metadataValidation sfa_activities.MetadataValidationResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
-		if err != nil {
-			return err
-		}
+			// Validate metadata.xsd.
+			var metadataValidation sfa_activities.MetadataValidationResult
+			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
+			if err != nil {
+				return err
+			}
 
-		// Repackage SFA Sip into a Bag.
-		var sipCreation sfa_activities.SipCreationResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
-		if err != nil {
-			return err
-		}
-		w.cleanUpPath(sipCreation.NewSipPath)
+			// Repackage SFA Sip into a Bag.
+			var sipCreation sfa_activities.SipCreationResult
+			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
+			if err != nil {
+				return err
+			}
+			// w.cleanUpPath(sipCreation.NewSipPath)
 
-		// We do this so that the code above only stops when a non-bussines error is found.
-		if !allowedFileFormats.Ok {
-			return sfa_activities.ErrIlegalFileFormat
+			// We do this so that the code above only stops when a non-bussines error is found.
+			if !allowedFileFormats.Ok {
+				return sfa_activities.ErrIlegalFileFormat
+			}
+			if !checkStructureRes.Ok {
+				return sfa_activities.ErrInvaliSipStructure
+			}
+			tinfo.TempFile = sipCreation.NewSipPath
+			tinfo.req.IsDir = true
+
+			return nil
+		}()
+		if PreProcessingErr != nil {
+			var sendToFailedRes sfa_activities.SendToFailedBucketResult
+			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.SendToFailedBucketName, &sfa_activities.SendToFailedBucketParams{
+				Path: tinfo.TempFile,
+				Key:  tinfo.req.Key,
+			}).Get(sessCtx, &sendToFailedRes)
+			if err != nil {
+				return err
+			}
+			return PreProcessingErr
 		}
-		if !checkStructureRes.Ok {
-			return sfa_activities.ErrInvaliSipStructure
-		}
-		tinfo.TempFile = sipCreation.NewSipPath
-		tinfo.req.IsDir = true
 	}
 
 	// Bundle.

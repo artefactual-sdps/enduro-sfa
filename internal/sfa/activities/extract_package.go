@@ -64,9 +64,5 @@ func (a *ExtractPackage) Execute(ctx context.Context, params *ExtractPackagePara
 		path = filepath.Join(tempDir, entries[0].Name())
 	}
 
-	if err = os.Remove(params.Path); err != nil {
-		return nil, temporal.NewNonRetryableError(fmt.Errorf("error removing package file: %v", err))
-	}
-
 	return &ExtractPackageResult{Path: path}, nil
 }
