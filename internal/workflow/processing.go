@@ -333,6 +333,7 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if err != nil {
 			return err
 		}
+		w.cleanUpPath(extractPackageRes.Path)
 
 		// Validate SIP structure.
 		var checkStructureRes sfa_activities.CheckSipStructureResult
@@ -360,6 +361,7 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		if err != nil {
 			return err
 		}
+		w.cleanUpPath(sipCreation.NewSipPath)
 
 		// We do this so that the code above only stops when a non-bussines error is found.
 		if !allowedFileFormats.Ok {

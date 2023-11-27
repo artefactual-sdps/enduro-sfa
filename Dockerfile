@@ -72,23 +72,7 @@ RUN pip3 install --no-cache --upgrade pip lxml bagit==v1.8.1
 COPY --from=build-enduro-am-worker --link /out/enduro-am-worker /home/enduro/bin/enduro-am-worker
 COPY --from=build-enduro-am-worker --link /src/enduro.toml /home/enduro/.config/enduro.toml
 # SFA metadata schema for validation.
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/xsdval.py xsdval.py
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/repackage_sip.py repackage_sip.py
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ablieferung.xsd ablieferung.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/archivischeNotiz.xsd archivischeNotiz.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/archivischerVorgang.xsd archivischerVorgang.xsd 
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/arelda.xsd arelda.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/base.xsd base.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/datei.xsd datei.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/dokument.xsd dokument.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/dossier.xsd dossier.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordner.xsd ordner.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordnungssystem.xsd ordnungssystem.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/ordnungssystemposition.xsd ordnungssystemposition.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/paket.xsd paket.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/provenienz.xsd provenienz.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/zusatzDaten.xsd zusatzDaten.xsd
-COPY --from=build-enduro-a3m-worker --link /src/hack/sampledata/xsd/bagit.txt bagit.txt
+COPY --from=build-enduro-am-worker --link /src/hack/sampledata/xsd/* /
 CMD ["/home/enduro/bin/enduro-am-worker", "--config", "/home/enduro/.config/enduro.toml"]
 
 FROM base AS enduro-a3m-worker
