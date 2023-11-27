@@ -8,18 +8,25 @@ import (
 )
 
 const SendToFailedBucketName = "send-to-failed-bucket"
+const FailureSIP = "sip"
+const FailureTransfer = "transfer"
 
 type SendToFailedBucketActivity struct {
-	failedBucket *blob.Bucket
+	failedTransferBucket *blob.Bucket
+	failedSipBucket      *blob.Bucket
 }
 
-func NewSendToFailedBuckeActivity(bucket *blob.Bucket) *SendToFailedBucketActivity {
-	return &SendToFailedBucketActivity{failedBucket: bucket}
+func NewSendToFailedBuckeActivity(transfer, sip *blob.Bucket) *SendToFailedBucketActivity {
+	return &SendToFailedBucketActivity{
+		failedTransferBucket: transfer,
+		failedSipBucket:      sip,
+	}
 }
 
 type SendToFailedBucketParams struct {
-	Path string
-	Key  string
+	FailureType string
+	Path        string
+	Key         string
 }
 
 type SendToFailedBucketResult struct {
@@ -34,9 +41,13 @@ func (sf *SendToFailedBucketActivity) Execute(ctx context.Context, params *SendT
 	}
 	res.FailedKey = "Failed_" + params.Key
 
-	if err := sf.failedBucket.Upload(ctx, res.FailedKey, f, &blob.WriterOptions{
-		ContentType: "application/octet-stream",
-	}); err != nil {
+	switch params.FailureType {
+	case FailureTransfer:
+		err = sf.failedTransferBucket.Upload(ctx, res.FailedKey, f, &blob.WriterOptions{ContentType: "application/octet-stream"})
+	case FailureSIP:
+		err = sf.failedSipBucket.Upload(ctx, res.FailedKey, f, &blob.WriterOptions{ContentType: "application/octet-stream"})
+	}
+	if err != nil {
 		return nil, err
 	}
 

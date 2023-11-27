@@ -40,7 +40,8 @@ type Configuration struct {
 	Upload       upload.Config
 	Watcher      watcher.Config
 
-	Failed storage.LocationConfig
+	FailedTransfers storage.LocationConfig
+	FailedSips      storage.LocationConfig
 }
 
 func (c Configuration) Validate() error {

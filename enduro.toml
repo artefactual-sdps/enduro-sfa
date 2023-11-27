@@ -63,13 +63,21 @@ secret = "minio123"
 region = "us-west-1"
 bucket = "aips"
 
-[failed]
+[failedtransfers]
 endpoint = "http://minio.enduro-sdps:9000"
 pathStyle = true
 key = "minio"
 secret = "minio123"
 region = "us-west-1"
 bucket = "failed-transfers"
+
+[failedsips]
+endpoint = "http://minio.enduro-sdps:9000"
+pathStyle = true
+key = "minio"
+secret = "minio123"
+region = "us-west-1"
+bucket = "failed-sips"
 
 # Change the taskqueue setting to your prefered preservation system, by default it is a3m.
 [preservation]

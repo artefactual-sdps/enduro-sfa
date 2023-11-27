@@ -53,7 +53,8 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(taskQueue string) {
 	pkgsvc := packagefake.NewMockService(ctrl)
 	wsvc := watcherfake.NewMockService(ctrl)
 	sftpc := sftp_fake.NewMockClient(ctrl)
-	failedBucket := watcherfake.OpenTestFileBucket(s.T())
+	failedBucketTransfers := watcherfake.OpenTestFileBucket(s.T())
+	failedBucketSips := watcherfake.OpenTestFileBucket(s.T())
 
 	s.env.RegisterActivityWithOptions(activities.NewDownloadActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.DownloadActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewBundleActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.BundleActivityName})
@@ -70,7 +71,7 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(taskQueue string) {
 	s.env.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
-	s.env.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedBucket).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedBucketTransfers, failedBucketSips).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
 
 	// Archivematica activities
 	s.env.RegisterActivityWithOptions(
