@@ -3,6 +3,7 @@ import sys
 import subprocess
 import bagit
 from lxml import objectify
+from datetime import date
 
 
 def parseXML(xmlFile):
@@ -70,9 +71,18 @@ def repackage_sip(sip_name):
     except:
         raise Exception("Checksum File could not be created")
     try:
-        bagit.Bag(bag_name).is_valid()
+        b = bagit.Bag(bag_name)
+        if not b.is_valid():
+            raise Exception("Bag not valid")
+        b.info["Bagging-Date"] = date.strftime(date.today(), "%Y-%m-%d")
+        b.info["Bag-Software-Agent"] = "bagit.py v%s <%s>" % (
+                    b.version,
+                    "https://github.com/LibraryOfCongress/bagit-python",
+                )
+        # Generates bag-info.txt with payload-oxum
+        b.save(manifests=True)
     except:
-        raise Exception("Bag not valid")
+        raise Exception("Something went wrong when repackaging the Bag")
     return (bag_name)
 
 
