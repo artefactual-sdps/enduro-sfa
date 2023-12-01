@@ -237,7 +237,7 @@ func unbag(path string) error {
 	}
 
 	// Confirm completeness of the bag.
-	if err := bagit.Valid(path); err != nil {
+	if err := bagit.Complete(path); err != nil {
 		return err
 	}
 
