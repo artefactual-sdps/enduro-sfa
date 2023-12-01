@@ -7,8 +7,8 @@ import (
 
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/fileblob"
-	"gotest.tools/assert"
-	"gotest.tools/fs"
+	"gotest.tools/v3/assert"
+	"gotest.tools/v3/fs"
 )
 
 func OpenTestFileBucket(t *testing.T) *blob.Bucket {

@@ -3,7 +3,7 @@ package fformat_test
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 
 	"github.com/artefactual-sdps/enduro/internal/fformat"
 )

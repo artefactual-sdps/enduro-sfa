@@ -50,7 +50,6 @@ require (
 	golang.org/x/crypto v0.14.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.5.1
 )
 
