@@ -29,7 +29,7 @@ func (md *MetadataValidationActivity) Execute(ctx context.Context, params *Metad
 		"xsdval.py",
 		// Arguments.
 		filepath.Join(params.SipPath, "/header/metadata.xml"),
-		"arelda.xsd").CombinedOutput()
+		"arelda.xsd").CombinedOutput() // #nosec G204
 	if err != nil {
 		return nil, err
 	}

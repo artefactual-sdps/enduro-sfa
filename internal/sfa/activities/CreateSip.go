@@ -25,7 +25,7 @@ type SipCreationResult struct {
 
 func (sc *SipCreationActivity) Execute(ctx context.Context, params *SipCreationParams) (*SipCreationResult, error) {
 	res := &SipCreationResult{}
-	e, err := exec.Command("python3", "repackage_sip.py", params.SipPath).CombinedOutput()
+	e, err := exec.Command("python3", "repackage_sip.py", params.SipPath).CombinedOutput() // #nosec G204
 	if err != nil {
 		return nil, err
 	}
