@@ -3,6 +3,7 @@ package fformat
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/richardlehane/siegfried"
 	"github.com/richardlehane/siegfried/pkg/config"
@@ -48,7 +49,7 @@ func NewSiegfriedEmbed() *siegfriedEmbed {
 // Identify runs the Siegfried PRONOM file identifier on the file at path and
 // returns a FileFormat pointer or an error.
 func (sf *siegfriedEmbed) Identify(path string) (*FileFormat, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, err
 	}
