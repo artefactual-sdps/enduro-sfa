@@ -370,8 +370,9 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 			if !checkStructureRes.Ok {
 				return sfa_activities.ErrInvaliSipStructure
 			}
-			tinfo.TempFile = sipCreation.NewSipPath
-			tinfo.req.IsDir = true
+
+			// Skip bundle activity.
+			tinfo.Bundle.FullPath = sipCreation.NewSipPath
 
 			return nil
 		}()
