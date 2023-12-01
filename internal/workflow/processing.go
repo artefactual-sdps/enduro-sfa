@@ -20,7 +20,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/fsutil"
 	"github.com/artefactual-sdps/enduro/internal/package_"
-	sfa_activities "github.com/artefactual-sdps/enduro/internal/sfa/activities"
+	"github.com/artefactual-sdps/enduro/internal/sfa"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
@@ -310,84 +310,13 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 
 	// SFA-Preprocessing activities only are meant to be used with Archivematica.
 	if w.taskQueue == temporal.AmWorkerTaskQueue {
-		preProcCtx := temporalsdk_workflow.WithActivityOptions(sessCtx, temporalsdk_workflow.ActivityOptions{
-			StartToCloseTimeout: time.Second * 5,
-			RetryPolicy: &temporalsdk_temporal.RetryPolicy{
-				InitialInterval:    time.Second,
-				BackoffCoefficient: 2,
-				MaximumInterval:    time.Second * 10,
-				MaximumAttempts:    2,
-				NonRetryableErrorTypes: []string{
-					"TemporalTimeout:StartToClose",
-				},
-			},
-		})
-
-		// Extract package.
-		var extractPackageRes sfa_activities.ExtractPackageResult
-		err := temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.ExtractPackageName, &sfa_activities.ExtractPackageParams{
-			Path: tinfo.TempFile,
-			Key:  tinfo.req.Key,
-		}).Get(sessCtx, &extractPackageRes)
+		path, err := sfa.ExecuteActivities(sessCtx, tinfo.TempFile, tinfo.req.Key)
 		if err != nil {
 			return err
 		}
-		// w.cleanUpPath(extractPackageRes.Path)
 
-		PreProcessingErr := func() error {
-			// Validate SIP structure.
-			var checkStructureRes sfa_activities.CheckSipStructureResult
-			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.CheckSipStructureName, &sfa_activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &checkStructureRes)
-			if err != nil {
-				return err
-			}
-
-			var allowedFileFormats sfa_activities.AllowedFileFormatsResult
-			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.AllowedFileFormatsName, &sfa_activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &allowedFileFormats)
-			if err != nil {
-				return err
-			}
-
-			// Validate metadata.xsd.
-			var metadataValidation sfa_activities.MetadataValidationResult
-			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.MetadataValidationName, &sfa_activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &metadataValidation)
-			if err != nil {
-				return err
-			}
-
-			// Repackage SFA Sip into a Bag.
-			var sipCreation sfa_activities.SipCreationResult
-			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.SipCreationName, &sfa_activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(sessCtx, &sipCreation)
-			if err != nil {
-				return err
-			}
-			// w.cleanUpPath(sipCreation.NewSipPath)
-
-			// We do this so that the code above only stops when a non-bussines error is found.
-			if !allowedFileFormats.Ok {
-				return sfa_activities.ErrIlegalFileFormat
-			}
-			if !checkStructureRes.Ok {
-				return sfa_activities.ErrInvaliSipStructure
-			}
-
-			// Skip bundle activity.
-			tinfo.Bundle.FullPath = sipCreation.NewSipPath
-
-			return nil
-		}()
-		if PreProcessingErr != nil {
-			var sendToFailedRes sfa_activities.SendToFailedBucketResult
-			err = temporalsdk_workflow.ExecuteActivity(preProcCtx, sfa_activities.SendToFailedBucketName, &sfa_activities.SendToFailedBucketParams{
-				FailureType: sfa_activities.FailureTransfer,
-				Path:        tinfo.TempFile,
-				Key:         tinfo.req.Key,
-			}).Get(sessCtx, &sendToFailedRes)
-			if err != nil {
-				return err
-			}
-			return PreProcessingErr
-		}
+		// Skip bundle activity.
+		tinfo.Bundle.FullPath = path
 	}
 
 	// Bundle.
@@ -736,17 +665,12 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	if err != nil {
 		return err
 	}
-	// w.cleanUpPath(zipResult.Path) // Delete when workflow completes.
 
+	// TODO: w.cleanUpPath() no longer exists.
+	// w.cleanUpPath(zipResult.Path) // Delete when workflow completes.
 	defer func() {
 		if err != nil {
-			var sendToFailedRes sfa_activities.SendToFailedBucketResult
-			bucketErr := temporalsdk_workflow.ExecuteActivity(activityOpts, sfa_activities.SendToFailedBucketName, &sfa_activities.SendToFailedBucketParams{
-				FailureType: sfa_activities.FailureSIP,
-				Path:        zipResult.Path,
-				Key:         tinfo.req.Key,
-			}).Get(sessCtx, &sendToFailedRes)
-			err = errors.Join(err, bucketErr)
+			err = errors.Join(err, sfa.SendToFailedSIPs(sessCtx, zipResult.Path, tinfo.req.Key))
 		}
 	}()
 

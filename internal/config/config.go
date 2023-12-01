@@ -41,7 +41,7 @@ type Configuration struct {
 	Watcher      watcher.Config
 
 	FailedTransfers storage.LocationConfig
-	FailedSips      storage.LocationConfig
+	FailedSIPs      storage.LocationConfig
 }
 
 func (c Configuration) Validate() error {
