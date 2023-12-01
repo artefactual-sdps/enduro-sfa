@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/artefactual-sdps/enduro/internal/fformat"
+	"github.com/artefactual-sdps/enduro/internal/sfa/fformat"
 	"github.com/artefactual-sdps/enduro/internal/sfa/sip"
 )
 

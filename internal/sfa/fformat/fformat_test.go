@@ -5,7 +5,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/artefactual-sdps/enduro/internal/fformat"
+	"github.com/artefactual-sdps/enduro/internal/sfa/fformat"
 )
 
 func TestSiegfriedEmbed(t *testing.T) {
