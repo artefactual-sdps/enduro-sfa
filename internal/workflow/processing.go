@@ -668,6 +668,7 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 
 	// TODO: w.cleanUpPath() no longer exists.
 	// w.cleanUpPath(zipResult.Path) // Delete when workflow completes.
+
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, sfa.SendToFailedSIPs(sessCtx, zipResult.Path, tinfo.req.Key))
