@@ -13,6 +13,7 @@ import (
 	temporalsdk_testsuite "go.temporal.io/sdk/testsuite"
 	temporalsdk_worker "go.temporal.io/sdk/worker"
 	"go.uber.org/mock/gomock"
+	"gocloud.dev/blob/memblob"
 	"gotest.tools/v3/assert"
 
 	"github.com/artefactual-sdps/enduro/internal/a3m"
@@ -53,8 +54,6 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(taskQueue string) {
 	pkgsvc := packagefake.NewMockService(ctrl)
 	wsvc := watcherfake.NewMockService(ctrl)
 	sftpc := sftp_fake.NewMockClient(ctrl)
-	failedBucketTransfers := watcherfake.OpenTestFileBucket(s.T())
-	failedBucketSips := watcherfake.OpenTestFileBucket(s.T())
 
 	s.env.RegisterActivityWithOptions(activities.NewDownloadActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.DownloadActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewBundleActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.BundleActivityName})
@@ -65,13 +64,14 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(taskQueue string) {
 	s.env.RegisterActivityWithOptions(activities.NewRejectPackageActivity(nil).Execute, temporalsdk_activity.RegisterOptions{Name: activities.RejectPackageActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewCleanUpActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.CleanUpActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewDeleteOriginalActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.DeleteOriginalActivityName})
+
 	// SFA-preprocessing activities.
 	s.env.RegisterActivityWithOptions(sfa_activities.NewExtractPackage().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.ExtractPackageName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewCheckSipStructure().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.CheckSipStructureName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewAllowedFileFormatsActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.AllowedFileFormatsName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.MetadataValidationName})
 	s.env.RegisterActivityWithOptions(sfa_activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SipCreationName})
-	s.env.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(failedBucketTransfers, failedBucketSips).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
+	s.env.RegisterActivityWithOptions(sfa_activities.NewSendToFailedBuckeActivity(memblob.OpenBucket(nil), memblob.OpenBucket(nil)).Execute, temporalsdk_activity.RegisterOptions{Name: sfa_activities.SendToFailedBucketName})
 
 	// Archivematica activities
 	s.env.RegisterActivityWithOptions(
