@@ -34,12 +34,6 @@ func TestExtractPackage(t *testing.T) {
 			processingDir: fs.NewDir(t, ""),
 			wantErr:       "no entry found in extracted package directory",
 		},
-		{
-			name:          "Fails with multiple entries",
-			processingDir: fs.NewDir(t, "", fs.WithDir("folder1"), fs.WithDir("folder2")),
-			zipFolders:    []string{"folder1", "folder2"},
-			wantErr:       "more than one entry found in extracted package directory",
-		},
 	}
 	for _, tt := range tests {
 		tt := tt

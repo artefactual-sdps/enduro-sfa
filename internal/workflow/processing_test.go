@@ -250,12 +250,12 @@ func (s *ProcessingWorkflowTestSuite) TestAMWorkflow() {
 	s.env.OnActivity(activities.BundleActivityName, mock.Anything, mock.Anything).Return(&activities.BundleActivityResult{FullPath: "/tmp/transfer", FullPathBeforeStrip: "/tmp/transfer"}, nil)
 
 	// SFA-preprocessing activities.
-	s.env.OnActivity(sfa_activities.ExtractPackageName, sessionCtx, &sfa_activities.ExtractPackageParams{}).Return(&sfa_activities.ExtractPackageResult{}, nil).Once()
+	s.env.OnActivity(sfa_activities.ExtractPackageName, sessionCtx, &sfa_activities.ExtractPackageParams{Key: "transfer.tgz"}).Return(&sfa_activities.ExtractPackageResult{}, nil).Once()
 	s.env.OnActivity(sfa_activities.CheckSipStructureName, sessionCtx, &sfa_activities.CheckSipStructureParams{}).Return(&sfa_activities.CheckSipStructureResult{Ok: true}, nil).Once()
 	s.env.OnActivity(sfa_activities.AllowedFileFormatsName, sessionCtx, &sfa_activities.AllowedFileFormatsParams{}).Return(&sfa_activities.AllowedFileFormatsResult{Ok: true}, nil).Once()
 	s.env.OnActivity(sfa_activities.MetadataValidationName, sessionCtx, &sfa_activities.MetadataValidationParams{}).Return(&sfa_activities.MetadataValidationResult{}, nil).Once()
 	s.env.OnActivity(sfa_activities.SipCreationName, sessionCtx, &sfa_activities.SipCreationParams{}).Return(&sfa_activities.SipCreationResult{}, nil).Once()
-	s.env.OnActivity(sfa_activities.SendToFailedBucketName, sessionCtx, &sfa_activities.SendToFailedBucketParams{}).Return(&sfa_activities.SendToFailedBucketResult{}, nil).Once().Maybe()
+	s.env.OnActivity(sfa_activities.SendToFailedBucketName, sessionCtx, &sfa_activities.SendToFailedBucketParams{}).Return(&sfa_activities.SendToFailedBucketResult{}, nil).Maybe()
 
 	// Archivematica specific activities.
 	s.env.OnActivity(activities.ZipActivityName,
@@ -278,7 +278,7 @@ func (s *ProcessingWorkflowTestSuite) TestAMWorkflow() {
 	).Return(nil).Once()
 
 	// Post-preservation activities.
-	s.env.OnActivity(updatePackageLocalActivity, ctx, logger, pkgsvc, mock.AnythingOfType("*workflow.updatePackageLocalActivityParams")).Return(nil).Once()
+	s.env.OnActivity(updatePackageLocalActivity, ctx, logger, pkgsvc, mock.AnythingOfType("*workflow.updatePackageLocalActivityParams")).Return(nil).Times(2)
 	s.env.OnActivity(setStatusLocalActivity, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Never()
 	s.env.OnActivity(completePreservationActionLocalActivity, ctx, pkgsvc, mock.AnythingOfType("*workflow.completePreservationActionLocalActivityParams")).Return(nil).Once()
 	s.env.OnActivity(activities.CleanUpActivityName, sessionCtx, mock.AnythingOfType("*activities.CleanUpActivityParams")).Return(nil).Once()
