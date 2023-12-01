@@ -7,9 +7,11 @@ import (
 	"gocloud.dev/blob"
 )
 
-const SendToFailedBucketName = "send-to-failed-bucket"
-const FailureSIP = "sip"
-const FailureTransfer = "transfer"
+const (
+	SendToFailedBucketName = "send-to-failed-bucket"
+	FailureSIP             = "sip"
+	FailureTransfer        = "transfer"
+)
 
 type SendToFailedBucketActivity struct {
 	failedTransferBucket *blob.Bucket

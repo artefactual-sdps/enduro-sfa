@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/mholt/archiver/v3"
-	"go.temporal.io/sdk/activity"
-	"go.temporal.io/sdk/testsuite"
+	temporalsdk_activity "go.temporal.io/sdk/activity"
+	temporalsdk_testsuite "go.temporal.io/sdk/testsuite"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 
@@ -55,11 +55,11 @@ func TestExtractPackage(t *testing.T) {
 			err := zip.Archive(zipFolders, zipPath)
 			assert.NilError(t, err)
 
-			ts := &testsuite.WorkflowTestSuite{}
+			ts := &temporalsdk_testsuite.WorkflowTestSuite{}
 			env := ts.NewTestActivityEnvironment()
 			env.RegisterActivityWithOptions(
 				activities.NewExtractPackage().Execute,
-				activity.RegisterOptions{Name: activities.ExtractPackageName},
+				temporalsdk_activity.RegisterOptions{Name: activities.ExtractPackageName},
 			)
 
 			future, err := env.ExecuteActivity(

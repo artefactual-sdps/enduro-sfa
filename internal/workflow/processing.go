@@ -735,7 +735,7 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	if err != nil {
 		return err
 	}
-	//w.cleanUpPath(zipResult.Path) // Delete when workflow completes.
+	// w.cleanUpPath(zipResult.Path) // Delete when workflow completes.
 
 	defer func() {
 		if err != nil {
@@ -745,7 +745,7 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 				Path:        zipResult.Path,
 				Key:         tinfo.req.Key,
 			}).Get(sessCtx, &sendToFailedRes)
-			errors.Join(err, bucketErr)
+			err = errors.Join(err, bucketErr)
 		}
 	}()
 
