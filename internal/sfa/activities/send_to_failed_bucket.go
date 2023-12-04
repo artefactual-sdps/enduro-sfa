@@ -42,12 +42,16 @@ func (sf *SendToFailedBucketActivity) Execute(ctx context.Context, params *SendT
 		return nil, err
 	}
 	res.FailedKey = "Failed_" + params.Key
+	writerOptions := &blob.WriterOptions{
+		ContentType: "application/octet-stream",
+		BufferSize:  100_000_000,
+	}
 
 	switch params.FailureType {
 	case FailureTransfer:
-		err = sf.failedTransferBucket.Upload(ctx, res.FailedKey, f, &blob.WriterOptions{ContentType: "application/octet-stream"})
+		err = sf.failedTransferBucket.Upload(ctx, res.FailedKey, f, writerOptions)
 	case FailureSIP:
-		err = sf.failedSipBucket.Upload(ctx, res.FailedKey, f, &blob.WriterOptions{ContentType: "application/octet-stream"})
+		err = sf.failedSipBucket.Upload(ctx, res.FailedKey, f, writerOptions)
 	}
 	if err != nil {
 		return nil, err
