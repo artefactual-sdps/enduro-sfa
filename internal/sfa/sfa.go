@@ -56,24 +56,10 @@ func RegisterActivities(ctx context.Context, w temporalsdk_worker.Worker, cfg co
 }
 
 func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string) (string, error) {
-	// TODO: fix and set activity options per activity.
-	preProcCtx := temporalsdk_workflow.WithActivityOptions(ctx, temporalsdk_workflow.ActivityOptions{
-		StartToCloseTimeout: time.Second * 5,
-		RetryPolicy: &temporalsdk_temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 2,
-			MaximumInterval:    time.Second * 10,
-			MaximumAttempts:    2,
-			NonRetryableErrorTypes: []string{
-				"TemporalTimeout:StartToClose",
-			},
-		},
-	})
-
 	err := func() error {
 		// Extract package.
 		var extractPackageRes activities.ExtractPackageResult
-		err := temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.ExtractPackageName, &activities.ExtractPackageParams{
+		err := temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.ExtractPackageName, &activities.ExtractPackageParams{
 			Path: path,
 			Key:  key,
 		}).Get(ctx, &extractPackageRes)
@@ -86,28 +72,36 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 
 		// Validate SIP structure.
 		var checkStructureRes activities.CheckSipStructureResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.CheckSipStructureName, &activities.CheckSipStructureParams{SipPath: extractPackageRes.Path}).Get(ctx, &checkStructureRes)
+		err = temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.CheckSipStructureName, &activities.CheckSipStructureParams{
+			SipPath: extractPackageRes.Path,
+		}).Get(ctx, &checkStructureRes)
 		if err != nil {
 			return err
 		}
 
 		// Check allowed file formats.
 		var allowedFileFormats activities.AllowedFileFormatsResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.AllowedFileFormatsName, &activities.AllowedFileFormatsParams{SipPath: extractPackageRes.Path}).Get(ctx, &allowedFileFormats)
+		err = temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.AllowedFileFormatsName, &activities.AllowedFileFormatsParams{
+			SipPath: extractPackageRes.Path,
+		}).Get(ctx, &allowedFileFormats)
 		if err != nil {
 			return err
 		}
 
 		// Validate metadata.xsd.
 		var metadataValidation activities.MetadataValidationResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.MetadataValidationName, &activities.MetadataValidationParams{SipPath: extractPackageRes.Path}).Get(ctx, &metadataValidation)
+		err = temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.MetadataValidationName, &activities.MetadataValidationParams{
+			SipPath: extractPackageRes.Path,
+		}).Get(ctx, &metadataValidation)
 		if err != nil {
 			return err
 		}
 
 		// Repackage SFA Sip into a Bag.
 		var sipCreation activities.SipCreationResult
-		err = temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.SipCreationName, &activities.SipCreationParams{SipPath: extractPackageRes.Path}).Get(ctx, &sipCreation)
+		err = temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.SipCreationName, &activities.SipCreationParams{
+			SipPath: extractPackageRes.Path,
+		}).Get(ctx, &sipCreation)
 		if err != nil {
 			return err
 		}
@@ -128,7 +122,7 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 		return nil
 	}()
 	if err != nil {
-		sendToFailedErr := temporalsdk_workflow.ExecuteActivity(preProcCtx, activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
+		sendToFailedErr := temporalsdk_workflow.ExecuteActivity(withUploadActOpts(ctx), activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
 			FailureType: activities.FailureTransfer,
 			Path:        path,
 			Key:         key,
@@ -141,10 +135,33 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 }
 
 func SendToFailedSIPs(ctx temporalsdk_workflow.Context, path string, key string) error {
-	// TODO: create and set activity options.
-	return temporalsdk_workflow.ExecuteActivity(ctx, activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
+	return temporalsdk_workflow.ExecuteActivity(withUploadActOpts(ctx), activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
 		FailureType: activities.FailureSIP,
 		Path:        path,
 		Key:         key,
 	}).Get(ctx, nil)
+}
+
+func withUploadActOpts(ctx temporalsdk_workflow.Context) temporalsdk_workflow.Context {
+	return temporalsdk_workflow.WithActivityOptions(ctx, temporalsdk_workflow.ActivityOptions{
+		StartToCloseTimeout: time.Hour * 24,
+		RetryPolicy: &temporalsdk_temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2,
+			MaximumInterval:    time.Minute * 10,
+			MaximumAttempts:    5,
+			NonRetryableErrorTypes: []string{
+				"TemporalTimeout:StartToClose",
+			},
+		},
+	})
+}
+
+func withLocalActOpts(ctx temporalsdk_workflow.Context) temporalsdk_workflow.Context {
+	return temporalsdk_workflow.WithActivityOptions(ctx, temporalsdk_workflow.ActivityOptions{
+		ScheduleToCloseTimeout: 5 * time.Minute,
+		RetryPolicy: &temporalsdk_temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
+	})
 }
