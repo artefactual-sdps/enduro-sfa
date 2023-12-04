@@ -16,6 +16,7 @@ func RegisterWorkflowTestActivities(env *temporalsdk_testsuite.TestWorkflowEnvir
 	env.RegisterActivityWithOptions(activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.MetadataValidationName})
 	env.RegisterActivityWithOptions(activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.SipCreationName})
 	env.RegisterActivityWithOptions(activities.NewSendToFailedBuckeActivity(memblob.OpenBucket(nil), memblob.OpenBucket(nil)).Execute, temporalsdk_activity.RegisterOptions{Name: activities.SendToFailedBucketName})
+	env.RegisterActivityWithOptions(activities.NewRemovePaths().Execute, temporalsdk_activity.RegisterOptions{Name: activities.RemovePathsName})
 }
 
 func AddWorkflowTestExpectations(env *temporalsdk_testsuite.TestWorkflowEnvironment) {
@@ -26,4 +27,5 @@ func AddWorkflowTestExpectations(env *temporalsdk_testsuite.TestWorkflowEnvironm
 	env.OnActivity(activities.MetadataValidationName, sessionCtx, &activities.MetadataValidationParams{}).Return(&activities.MetadataValidationResult{}, nil).Once()
 	env.OnActivity(activities.SipCreationName, sessionCtx, &activities.SipCreationParams{}).Return(&activities.SipCreationResult{}, nil).Once()
 	env.OnActivity(activities.SendToFailedBucketName, sessionCtx, &activities.SendToFailedBucketParams{}).Return(&activities.SendToFailedBucketResult{}, nil).Maybe()
+	env.OnActivity(activities.RemovePathsName, sessionCtx, &activities.RemovePathsParams{Paths: []string{"", ""}}).Return(&activities.RemovePathsResult{}, nil).Once()
 }

@@ -51,12 +51,23 @@ func RegisterActivities(ctx context.Context, w temporalsdk_worker.Worker, cfg co
 	w.RegisterActivityWithOptions(activities.NewMetadataValidationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.MetadataValidationName})
 	w.RegisterActivityWithOptions(activities.NewSipCreationActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.SipCreationName})
 	w.RegisterActivityWithOptions(activities.NewSendToFailedBuckeActivity(ft, fs).Execute, temporalsdk_activity.RegisterOptions{Name: activities.SendToFailedBucketName})
+	w.RegisterActivityWithOptions(activities.NewRemovePaths().Execute, temporalsdk_activity.RegisterOptions{Name: activities.RemovePathsName})
 
 	return nil
 }
 
-func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string) (string, error) {
-	err := func() error {
+func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string) (p string, e error) {
+	var removePaths []string
+
+	defer func() {
+		var result activities.RemovePathsResult
+		err := temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.RemovePathsName, &activities.RemovePathsParams{
+			Paths: removePaths,
+		}).Get(ctx, &result)
+		e = errors.Join(e, err)
+	}()
+
+	e = func() error {
 		// Extract package.
 		var extractPackageRes activities.ExtractPackageResult
 		err := temporalsdk_workflow.ExecuteActivity(withLocalActOpts(ctx), activities.ExtractPackageName, &activities.ExtractPackageParams{
@@ -67,8 +78,7 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 			return err
 		}
 
-		// TODO: w.cleanUpPath() no longer exists.
-		// w.cleanUpPath(extractPackageRes.Path)
+		removePaths = append(removePaths, path, extractPackageRes.Path)
 
 		// Validate SIP structure.
 		var checkStructureRes activities.CheckSipStructureResult
@@ -106,9 +116,6 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 			return err
 		}
 
-		// TODO: w.cleanUpPath() no longer exists.
-		// w.cleanUpPath(sipCreation.NewSipPath)
-
 		// We do this so that the code above only stops when a non-bussines error is found.
 		if !allowedFileFormats.Ok {
 			return activities.ErrIlegalFileFormat
@@ -117,21 +124,22 @@ func ExecuteActivities(ctx temporalsdk_workflow.Context, path string, key string
 			return activities.ErrInvaliSipStructure
 		}
 
-		path = sipCreation.NewSipPath
+		p = sipCreation.NewSipPath
 
 		return nil
 	}()
-	if err != nil {
-		sendToFailedErr := temporalsdk_workflow.ExecuteActivity(withUploadActOpts(ctx), activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
+	if e != nil {
+		err := temporalsdk_workflow.ExecuteActivity(withUploadActOpts(ctx), activities.SendToFailedBucketName, &activities.SendToFailedBucketParams{
 			FailureType: activities.FailureTransfer,
 			Path:        path,
 			Key:         key,
 		}).Get(ctx, nil)
+		e = errors.Join(e, err)
 
-		return "", errors.Join(err, sendToFailedErr)
+		return p, e
 	}
 
-	return path, nil
+	return p, e
 }
 
 func SendToFailedSIPs(ctx temporalsdk_workflow.Context, path string, key string) error {
