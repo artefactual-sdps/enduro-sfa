@@ -20,6 +20,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/package_"
 	packagefake "github.com/artefactual-sdps/enduro/internal/package_/fake"
+	"github.com/artefactual-sdps/enduro/internal/sfa"
 	sftp_fake "github.com/artefactual-sdps/enduro/internal/sftp/fake"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	watcherfake "github.com/artefactual-sdps/enduro/internal/watcher/fake"
@@ -64,6 +65,8 @@ func (s *ProcessingWorkflowTestSuite) SetupWorkflowTest(taskQueue string) {
 	s.env.RegisterActivityWithOptions(activities.NewRejectPackageActivity(nil).Execute, temporalsdk_activity.RegisterOptions{Name: activities.RejectPackageActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewCleanUpActivity().Execute, temporalsdk_activity.RegisterOptions{Name: activities.CleanUpActivityName})
 	s.env.RegisterActivityWithOptions(activities.NewDeleteOriginalActivity(wsvc).Execute, temporalsdk_activity.RegisterOptions{Name: activities.DeleteOriginalActivityName})
+
+	sfa.RegisterWorkflowTestActivities(s.env)
 
 	// Archivematica activities
 	s.env.RegisterActivityWithOptions(
@@ -320,6 +323,8 @@ func (s *ProcessingWorkflowTestSuite) TestAMWorkflow() {
 		},
 		nil,
 	)
+
+	sfa.AddWorkflowTestExpectations(s.env)
 
 	// Archivematica specific activities.
 	s.env.OnActivity(activities.ZipActivityName, sessionCtx,

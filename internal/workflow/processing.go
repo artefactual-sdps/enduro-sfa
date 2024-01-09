@@ -20,6 +20,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/am"
 	"github.com/artefactual-sdps/enduro/internal/fsutil"
 	"github.com/artefactual-sdps/enduro/internal/package_"
+	"github.com/artefactual-sdps/enduro/internal/sfa"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
@@ -312,35 +313,48 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		}
 	}
 
-	// Bundle.
-	{
-		// For the a3m workflow bundle the transfer to a directory shared with
-		// the a3m container.
-		var transferDir string
-		if w.taskQueue == temporal.A3mWorkerTaskQueue {
-			transferDir = "/home/a3m/.local/share/a3m/share"
-		}
-
-		activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
-		var bundleResult activities.BundleActivityResult
-		err := temporalsdk_workflow.ExecuteActivity(
-			activityOpts,
-			activities.BundleActivityName,
-			&activities.BundleActivityParams{
-				WatcherName:      tinfo.req.WatcherName,
-				TransferDir:      transferDir,
-				Key:              tinfo.req.Key,
-				IsDir:            tinfo.req.IsDir,
-				TempFile:         tinfo.TempFile,
-				StripTopLevelDir: tinfo.req.StripTopLevelDir,
-			},
-		).Get(activityOpts, &bundleResult)
+	// SFA-Preprocessing activities only are meant to be used with Archivematica.
+	if w.taskQueue == temporal.AmWorkerTaskQueue {
+		path, err := sfa.ExecuteActivities(sessCtx, tinfo.TempFile, tinfo.req.Key)
 		if err != nil {
 			return err
 		}
 
-		tinfo.Bundle = bundleResult
+		// Skip bundle activity.
+		tinfo.Bundle.FullPath = path
 	}
+
+	/*
+		// Bundle.
+		{
+			// For the a3m workflow bundle the transfer to a directory shared with
+			// the a3m container.
+			var transferDir string
+			if w.taskQueue == temporal.A3mWorkerTaskQueue {
+				transferDir = "/home/a3m/.local/share/a3m/share"
+			}
+
+			activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
+			var bundleResult activities.BundleActivityResult
+			err := temporalsdk_workflow.ExecuteActivity(
+				activityOpts,
+				activities.BundleActivityName,
+				&activities.BundleActivityParams{
+					WatcherName:      tinfo.req.WatcherName,
+					TransferDir:      transferDir,
+					Key:              tinfo.req.Key,
+					IsDir:            tinfo.req.IsDir,
+					TempFile:         tinfo.TempFile,
+					StripTopLevelDir: tinfo.req.StripTopLevelDir,
+				},
+			).Get(activityOpts, &bundleResult)
+			if err != nil {
+				return err
+			}
+
+			tinfo.Bundle = bundleResult
+		}
+	*/
 
 	// Delete local temporary files.
 	defer func() {
@@ -663,6 +677,12 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, sfa.SendToFailedSIPs(sessCtx, zipResult.Path, tinfo.req.Key))
+		}
+	}()
 
 	// Upload transfer to AMSS.
 	activityOpts = temporalsdk_workflow.WithActivityOptions(sessCtx,
