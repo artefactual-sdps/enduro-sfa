@@ -56,6 +56,7 @@ func (md *AllowedFileFormatsActivity) Execute(ctx context.Context, params *Allow
 		"fmt/569":   {},
 		"fmt/199":   {},
 		"fmt/101":   {},
+		"fmt/142":   {},
 		"x-fmt/280": {},
 		"fmt/1014":  {},
 		"fmt/1012":  {},
