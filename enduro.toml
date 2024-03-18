@@ -134,3 +134,13 @@ bucket = "sips"
 enabled = false
 address = ""
 samplingRatio = 1.0
+
+[preprocessing]
+enabled = true
+extract = true
+sharedPath = "/tmp"
+
+[preprocessing.temporal]
+namespace = "default"
+taskQueue = "preprocessing"
+workflowName = "preprocessing"

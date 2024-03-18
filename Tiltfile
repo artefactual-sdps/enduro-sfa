@@ -63,8 +63,34 @@ KUBE_OVERLAY = 'hack/kube/overlays/dev-a3m'
 if PRES_SYS == 'am':
   KUBE_OVERLAY = 'hack/kube/overlays/dev-am'
 
+# Load Kustomize YAML
+yaml = kustomize(KUBE_OVERLAY)
+
+# Preprocessing
+PREP_PATH = os.environ.get("PREPROCESSING_PATH", "")
+if PREP_PATH != "":
+  # Load preprocessing Tiltfile for Enduro
+  load_dynamic(PREP_PATH + "/Tiltfile.enduro")
+  # Deploying with shared filesystem
+  PREP_SHARE = os.environ.get("PREPROCESSING_SHARING_FS", "").lower() in true
+  if PREP_SHARE:
+    # Get Enduro a3m/am worker k8s manifest
+    if PRES_SYS == "a3m":
+      pres_yaml, yaml = filter_yaml(yaml, name="^enduro-a3m$", kind="StatefulSet")
+    else:
+      pres_yaml, yaml = filter_yaml(yaml, name="^enduro-am$", kind="Deployment")
+    # Append preprocessing volume and volume mount to worker container,
+    # this will only work in single node k8s cluster deployments
+    volume = {"name": "shared-dir", "persistentVolumeClaim": {"claimName": "preprocessing-pvc"}}
+    volume_mount = {"name": "shared-dir", "mountPath": "/tmp"}
+    pres_obj = decode_yaml(pres_yaml)
+    pres_obj["spec"]["template"]["spec"]["volumes"].append(volume)
+    pres_obj["spec"]["template"]["spec"]["containers"][0]["volumeMounts"].append(volume_mount)
+    pres_yaml = encode_yaml(pres_obj)
+    yaml = [yaml, pres_yaml]
+
 # Load Kubernetes resources
-k8s_yaml(kustomize(KUBE_OVERLAY))
+k8s_yaml(yaml)
 
 # Configure trigger mode
 trigger_mode = TRIGGER_MODE_MANUAL

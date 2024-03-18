@@ -13,6 +13,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/api"
 	"github.com/artefactual-sdps/enduro/internal/db"
 	"github.com/artefactual-sdps/enduro/internal/event"
+	"github.com/artefactual-sdps/enduro/internal/preprocessing"
 	"github.com/artefactual-sdps/enduro/internal/pres"
 	"github.com/artefactual-sdps/enduro/internal/storage"
 	"github.com/artefactual-sdps/enduro/internal/telemetry"
@@ -30,17 +31,18 @@ type Configuration struct {
 	Debug       bool
 	DebugListen string
 
-	A3m          a3m.Config
-	AM           am.Config
-	API          api.Config
-	Database     db.Config
-	Event        event.Config
-	Preservation pres.Config
-	Storage      storage.Config
-	Temporal     temporal.Config
-	Upload       upload.Config
-	Watcher      watcher.Config
-	Telemetry    telemetry.Config
+	A3m           a3m.Config
+	AM            am.Config
+	API           api.Config
+	Database      db.Config
+	Event         event.Config
+	Preservation  pres.Config
+	Storage       storage.Config
+	Temporal      temporal.Config
+	Upload        upload.Config
+	Watcher       watcher.Config
+	Telemetry     telemetry.Config
+	Preprocessing preprocessing.Config
 }
 
 func (c Configuration) Validate() error {

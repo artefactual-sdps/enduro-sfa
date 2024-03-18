@@ -8,11 +8,13 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"go.artefactual.dev/tools/ref"
+	temporalapi_enums "go.temporal.io/api/enums/v1"
 	temporalsdk_temporal "go.temporal.io/sdk/temporal"
 	temporalsdk_workflow "go.temporal.io/sdk/workflow"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/artefactual-sdps/enduro/internal/config"
 	"github.com/artefactual-sdps/enduro/internal/fsutil"
 	"github.com/artefactual-sdps/enduro/internal/package_"
+	"github.com/artefactual-sdps/enduro/internal/preprocessing"
 	"github.com/artefactual-sdps/enduro/internal/temporal"
 	"github.com/artefactual-sdps/enduro/internal/watcher"
 	"github.com/artefactual-sdps/enduro/internal/workflow/activities"
@@ -309,7 +312,7 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 	}
 
 	// Unarchive the transfer if it's not a directory.
-	if !tinfo.req.IsDir {
+	if !tinfo.req.IsDir && !w.cfg.Preprocessing.Extract {
 		activityOpts := withActivityOptsForLocalAction(sessCtx)
 		var result activities.UnarchiveActivityResult
 		err := temporalsdk_workflow.ExecuteActivity(
@@ -325,6 +328,11 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		}
 		tinfo.TempPath = result.DestPath
 		tinfo.req.IsDir = result.IsDir
+	}
+
+	// Preprocessing child workflow.
+	if err := w.preprocessing(sessCtx, tinfo); err != nil {
+		return err
 	}
 
 	// Bundle.
@@ -772,6 +780,43 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// TODO:
+// - Allow using a different Temporal instance?
+// - Make retry policy and timeouts configurable?
+// - Enable remote options.
+// - Move transfer if tinfo.TempPath is not inside w.prepConfig.SharedPath.
+func (w *ProcessingWorkflow) preprocessing(ctx temporalsdk_workflow.Context, tinfo *TransferInfo) error {
+	if !w.cfg.Preprocessing.Enabled {
+		return nil
+	}
+
+	realPath, err := filepath.Rel(w.cfg.Preprocessing.SharedPath, tinfo.TempPath)
+	if err != nil {
+		return err
+	}
+
+	preCtx := temporalsdk_workflow.WithChildOptions(ctx, temporalsdk_workflow.ChildWorkflowOptions{
+		Namespace:         w.cfg.Preprocessing.Temporal.Namespace,
+		TaskQueue:         w.cfg.Preprocessing.Temporal.TaskQueue,
+		WorkflowID:        fmt.Sprintf("%s-%s", w.cfg.Preprocessing.Temporal.WorkflowName, uuid.New().String()),
+		ParentClosePolicy: temporalapi_enums.PARENT_CLOSE_POLICY_TERMINATE,
+	})
+	var result preprocessing.WorkflowResult
+	err = temporalsdk_workflow.ExecuteChildWorkflow(
+		preCtx,
+		w.cfg.Preprocessing.Temporal.WorkflowName,
+		preprocessing.WorkflowParams{RelativePath: realPath},
+	).Get(preCtx, &result)
+	if err != nil {
+		return err
+	}
+
+	tinfo.TempPath = filepath.Join(w.cfg.Preprocessing.SharedPath, filepath.Clean(result.RelativePath))
+	tinfo.req.IsDir = true
 
 	return nil
 }
