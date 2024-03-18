@@ -90,6 +90,8 @@ type TransferInfo struct {
 	// It is populated by the workflow request.
 	GlobalTaskQueue       string
 	PreservationTaskQueue string
+
+	SendToFailedPath string
 }
 
 func (t *TransferInfo) Name() string {
@@ -297,69 +299,23 @@ func (w *ProcessingWorkflow) SessionHandler(sessCtx temporalsdk_workflow.Context
 		}
 	}
 
-	// Download.
-	{
-		var downloadResult activities.DownloadActivityResult
-		activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
-		err := temporalsdk_workflow.ExecuteActivity(activityOpts, activities.DownloadActivityName, &activities.DownloadActivityParams{
-			Key:         tinfo.req.Key,
-			WatcherName: tinfo.req.WatcherName,
-		}).Get(activityOpts, &downloadResult)
-		if err != nil {
-			return err
-		}
-		tinfo.TempPath = downloadResult.Path
-	}
-
-	// Unarchive the transfer if it's not a directory.
-	if !tinfo.req.IsDir && !w.cfg.Preprocessing.Extract {
-		activityOpts := withActivityOptsForLocalAction(sessCtx)
-		var result activities.UnarchiveActivityResult
-		err := temporalsdk_workflow.ExecuteActivity(
-			activityOpts,
-			activities.UnarchiveActivityName,
-			&activities.UnarchiveActivityParams{
-				SourcePath:       tinfo.TempPath,
-				StripTopLevelDir: tinfo.req.StripTopLevelDir,
-			},
-		).Get(activityOpts, &result)
-		if err != nil {
-			return err
-		}
-		tinfo.TempPath = result.DestPath
-		tinfo.req.IsDir = result.IsDir
-	}
-
-	// Preprocessing child workflow.
+	// Preprocessing.
 	if err := w.preprocessing(sessCtx, tinfo); err != nil {
-		return err
-	}
-
-	// Bundle.
-	{
-		// For the a3m workflow bundle the transfer to a directory shared with
-		// the a3m container.
-		var transferDir string
-		if w.cfg.Preservation.TaskQueue == temporal.A3mWorkerTaskQueue {
-			transferDir = w.cfg.A3m.ShareDir
-		}
-
 		activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
-		var bundleResult activities.BundleActivityResult
-		err := temporalsdk_workflow.ExecuteActivity(
+		sendErr := temporalsdk_workflow.ExecuteActivity(
 			activityOpts,
-			activities.BundleActivityName,
-			&activities.BundleActivityParams{
-				SourcePath:  tinfo.TempPath,
-				TransferDir: transferDir,
-				IsDir:       tinfo.req.IsDir,
+			activities.SendToFailedBucketName,
+			&activities.SendToFailedBucketParams{
+				FailureType: activities.FailureTransfer,
+				Path:        tinfo.SendToFailedPath,
+				Key:         tinfo.req.Key,
 			},
-		).Get(activityOpts, &bundleResult)
-		if err != nil {
-			return err
+		).Get(activityOpts, nil)
+		if sendErr != nil {
+			err = errors.Join(err, sendErr)
 		}
 
-		tinfo.Bundle = bundleResult
+		return err
 	}
 
 	// Delete local temporary files.
@@ -669,9 +625,7 @@ func (w *ProcessingWorkflow) transferA3m(sessCtx temporalsdk_workflow.Context, t
 	return err
 }
 
-func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, tinfo *TransferInfo) error {
-	var err error
-
+func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, tinfo *TransferInfo) (err error) {
 	// Zip transfer.
 	activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
 	var zipResult activities.ZipActivityResult
@@ -683,6 +637,24 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			activityOpts := withActivityOptsForLongLivedRequest(sessCtx)
+			sendErr := temporalsdk_workflow.ExecuteActivity(
+				activityOpts,
+				activities.SendToFailedBucketName,
+				&activities.SendToFailedBucketParams{
+					FailureType: activities.FailureSIP,
+					Path:        zipResult.Path,
+					Key:         tinfo.req.Key,
+				},
+			).Get(activityOpts, nil)
+			if sendErr != nil {
+				err = errors.Join(err, sendErr)
+			}
+		}
+	}()
 
 	// Upload transfer to AMSS.
 	activityOpts = temporalsdk_workflow.WithActivityOptions(sessCtx,
@@ -790,33 +762,93 @@ func (w *ProcessingWorkflow) transferAM(sessCtx temporalsdk_workflow.Context, ti
 // - Enable remote options.
 // - Move transfer if tinfo.TempPath is not inside w.prepConfig.SharedPath.
 func (w *ProcessingWorkflow) preprocessing(ctx temporalsdk_workflow.Context, tinfo *TransferInfo) error {
-	if !w.cfg.Preprocessing.Enabled {
-		return nil
+	// Download.
+	{
+		var downloadResult activities.DownloadActivityResult
+		activityOpts := withActivityOptsForLongLivedRequest(ctx)
+		err := temporalsdk_workflow.ExecuteActivity(activityOpts, activities.DownloadActivityName, &activities.DownloadActivityParams{
+			Key:         tinfo.req.Key,
+			WatcherName: tinfo.req.WatcherName,
+		}).Get(activityOpts, &downloadResult)
+		if err != nil {
+			return err
+		}
+		tinfo.TempPath = downloadResult.Path
+		tinfo.SendToFailedPath = downloadResult.Path
 	}
 
-	realPath, err := filepath.Rel(w.cfg.Preprocessing.SharedPath, tinfo.TempPath)
-	if err != nil {
-		return err
+	// Unarchive the transfer if it's not a directory.
+	if !tinfo.req.IsDir && !w.cfg.Preprocessing.Extract {
+		activityOpts := withActivityOptsForLocalAction(ctx)
+		var result activities.UnarchiveActivityResult
+		err := temporalsdk_workflow.ExecuteActivity(
+			activityOpts,
+			activities.UnarchiveActivityName,
+			&activities.UnarchiveActivityParams{
+				SourcePath:       tinfo.TempPath,
+				StripTopLevelDir: tinfo.req.StripTopLevelDir,
+			},
+		).Get(activityOpts, &result)
+		if err != nil {
+			return err
+		}
+		tinfo.TempPath = result.DestPath
+		tinfo.req.IsDir = result.IsDir
 	}
 
-	preCtx := temporalsdk_workflow.WithChildOptions(ctx, temporalsdk_workflow.ChildWorkflowOptions{
-		Namespace:         w.cfg.Preprocessing.Temporal.Namespace,
-		TaskQueue:         w.cfg.Preprocessing.Temporal.TaskQueue,
-		WorkflowID:        fmt.Sprintf("%s-%s", w.cfg.Preprocessing.Temporal.WorkflowName, uuid.New().String()),
-		ParentClosePolicy: temporalapi_enums.PARENT_CLOSE_POLICY_TERMINATE,
-	})
-	var result preprocessing.WorkflowResult
-	err = temporalsdk_workflow.ExecuteChildWorkflow(
-		preCtx,
-		w.cfg.Preprocessing.Temporal.WorkflowName,
-		preprocessing.WorkflowParams{RelativePath: realPath},
-	).Get(preCtx, &result)
-	if err != nil {
-		return err
+	// Optional child workflow.
+	if w.cfg.Preprocessing.Enabled {
+		realPath, err := filepath.Rel(w.cfg.Preprocessing.SharedPath, tinfo.TempPath)
+		if err != nil {
+			return err
+		}
+
+		preCtx := temporalsdk_workflow.WithChildOptions(ctx, temporalsdk_workflow.ChildWorkflowOptions{
+			Namespace:         w.cfg.Preprocessing.Temporal.Namespace,
+			TaskQueue:         w.cfg.Preprocessing.Temporal.TaskQueue,
+			WorkflowID:        fmt.Sprintf("%s-%s", w.cfg.Preprocessing.Temporal.WorkflowName, uuid.New().String()),
+			ParentClosePolicy: temporalapi_enums.PARENT_CLOSE_POLICY_TERMINATE,
+		})
+		var result preprocessing.WorkflowResult
+		err = temporalsdk_workflow.ExecuteChildWorkflow(
+			preCtx,
+			w.cfg.Preprocessing.Temporal.WorkflowName,
+			preprocessing.WorkflowParams{RelativePath: realPath},
+		).Get(preCtx, &result)
+		if err != nil {
+			return err
+		}
+
+		tinfo.TempPath = filepath.Join(w.cfg.Preprocessing.SharedPath, filepath.Clean(result.RelativePath))
+		tinfo.req.IsDir = true
 	}
 
-	tinfo.TempPath = filepath.Join(w.cfg.Preprocessing.SharedPath, filepath.Clean(result.RelativePath))
-	tinfo.req.IsDir = true
+	// Bundle.
+	{
+		// For the a3m workflow bundle the transfer to a directory shared with
+		// the a3m container.
+		var transferDir string
+		if w.cfg.Preservation.TaskQueue == temporal.A3mWorkerTaskQueue {
+			transferDir = w.cfg.A3m.ShareDir
+		}
+
+		activityOpts := withActivityOptsForLongLivedRequest(ctx)
+		var bundleResult activities.BundleActivityResult
+		err := temporalsdk_workflow.ExecuteActivity(
+			activityOpts,
+			activities.BundleActivityName,
+			&activities.BundleActivityParams{
+				SourcePath:  tinfo.TempPath,
+				TransferDir: transferDir,
+				IsDir:       tinfo.req.IsDir,
+			},
+		).Get(activityOpts, &bundleResult)
+		if err != nil {
+			return err
+		}
+
+		tinfo.Bundle = bundleResult
+	}
 
 	return nil
 }
